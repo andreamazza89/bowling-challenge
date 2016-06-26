@@ -2,56 +2,49 @@
 
 'use strict';
 
-function ScoreManager(frameModel = new Frame) {
-  this._frameModel = frameModel
-  this._score = 0;
+function ScoreManager(frameModel = Frame()) {
+  this._frameModel = frameModel;
+  this._frames = [];
   this._gameFinished = false;
-  this._currentFrame = 0;
-  this._adjacentStrike = false;
+
 };
 
 ScoreManager.prototype = {
-  
-  currentFrame: function() {
-    return this._currentFrame;
-  },
 
-  getScore: function() {
-    return this._score;
-  },
-
-  roll: function(pins) {
-    if (this.isRollValid(pins)) {
-      this._score += pins;
-      this.checkBonusPoints(pins);
-      this._frameModel.roll(pins);
-      if (this._frameModel.isNewFrame()) {
-        this._currentFrame += 1;
-      }
-    } else {
-      throw('Cannot roll: not enough pins');
+  checkBonusPoints: function(pins) {
+    if (this._frames[this._frames.length-1].isSpare()) {
+      this._frames[this._frames.length-1].addBonus(pins);
+    } else if (this._frames.length > 1 && this._frames[this._frames.length-2].isStrike() &&
+               this._frames[this._frames.length-3].isStrike()) {
+      this._frames[this._frames.length-3].addBonus(pins + this._frames[this._frames.length-2].getScore());
+    } else if (!(this._frames[this._frames.length-1].isOpen()) &&  this._frames[this._frames.length-1].isStrike()) {
+      this._frames[this._frames.length-2].addBonus(this._frames[this._frames.length-1].getScore());
     }
   },
 
-  //This is wrapping a method from a different object so that the interface deal with 
-  //just the scoreManager rather than scoreManager + frame
-  isRollValid: function(pins) {
-    return this._frameModel.isRollValid(pins);
+  roll: function(pins) {
+    if (this._frames.length > 0 && this._frames[this._frames.length-1].isOpen()) {
+      this._frames[this._frames.length-1].roll(pins);
+    } else {
+      this._frames.push(new Frame(pins));
+    }
+    if (this._frames.length > 0){
+      this.checkBonusPoints(pins);
+    }
+  },
+  
+  currentFrame: function() {
+    return this._frames.length;
   },
 
+  getScore: function() {
+    var latestScore = 0;
+    this._frames.forEach(function(frame) { latestScore += frame._score; });
+    return latestScore;
+  },
+    
   isGameFinished: function() {
     return this._gameFinished;
   },
 
-  checkBonusPoints: function(pins) {
-    if (this._frameModel.isSpare()) {
-      this._adjacentStrike = false;
-      this._score += pins;
-    } else if (this._frameModel.isStrike()) {
-      this._adjacentStrike = true;
-      this._score += pins;
-    } else {
-      this._adjacentStrike = false;
-    }  
-  }
 };
